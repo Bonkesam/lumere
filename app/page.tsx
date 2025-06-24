@@ -128,16 +128,18 @@ const Home = () => {
         <section id="home">
           <Hero />
         </section>
+
+                {/* Product Showcase Section */}
+        <section id="products">
+          <ProductShowcase />
+        </section>
         
         {/* Brand Story Section */}
         <section id="story">
           <BrandStory />
         </section>
         
-        {/* Product Showcase Section */}
-        <section id="products">
-          <ProductShowcase />
-        </section>
+
         
         {/* Science & Innovation Section */}
         <section id="science">
