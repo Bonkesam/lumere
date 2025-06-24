@@ -8,20 +8,26 @@ import CTA from '@/components/CTA';
 import Hero from '@/components/Hero';
 import Navigation from '@/components/Navigation';
 import ProductShowcase from '@/components/ProductShowcase';
-import ScienceInnovation from '@/components/SceinceInnovation';
+import ScienceInnovation from '@/components/ScienceInnovation';
 import Testimonials from '@/components/Testimonials';
 
 const Home = () => {
   const lenisRef = useRef<Lenis | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Ensure component is mounted before running client-side code
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
-    // Initialize animations
+    if (!isMounted) return;
+    
     animations.init();
 
-    // Initialize Lenis
     const lenis = new Lenis({
       duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
     });
     lenisRef.current = lenis;
 
@@ -29,10 +35,14 @@ const Home = () => {
       lenis.raf(time);
       requestAnimationFrame(raf);
     }
-
     requestAnimationFrame(raf);
 
-    // Inject custom styles
+    return () => lenis.destroy();
+  }, [isMounted]);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
     const style = document.createElement('style');
     style.textContent = `
       ::-webkit-scrollbar {
@@ -69,8 +79,7 @@ const Home = () => {
     `;
     document.head.appendChild(style);
 
-    // Lazy-load images
-    const imageObserver = new IntersectionObserver((entries) => {
+    const imageObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           const img = entry.target as HTMLImageElement;
@@ -79,36 +88,35 @@ const Home = () => {
         }
       });
     });
-
+    
     document.querySelectorAll('img[loading="lazy"]').forEach(img => {
       imageObserver.observe(img);
     });
 
     return () => {
-      lenis.destroy();
       document.head.removeChild(style);
       imageObserver.disconnect();
     };
-  }, []);
+  }, [isMounted]);
 
-  // Preload critical images
   useEffect(() => {
-    const criticalImages = [
+    if (!isMounted) return;
+    
+    const critical = [
       'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=1200&h=800&fit=crop',
       'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=600&fit=crop'
+      'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=600&fit=crop',
     ];
-    criticalImages.forEach(src => {
+    critical.forEach(src => {
       const img = new Image();
       img.src = src;
     });
-  }, []);
+  }, [isMounted]);
 
   return (
     <div className="relative">
-      {/* Loading Screen */}
-      <div 
-        id="loading-screen" 
+      <div
+        id="loading-screen"
         className="fixed inset-0 bg-white z-50 flex items-center justify-center transition-opacity duration-1000"
         style={{ opacity: 0, pointerEvents: 'none' }}
       >
@@ -118,10 +126,8 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Navigation */}
       <Navigation />
 
-      {/* Main Content */}
       <main className="relative">
         <section id="home"><Hero /></section>
         <section id="products"><ProductShowcase /></section>
@@ -131,108 +137,113 @@ const Home = () => {
         <section id="contact"><CTA /></section>
       </main>
 
-      <ScrollToTop lenisRef={lenisRef} />
-      <CursorEffect />
+      {isMounted && (
+        <>
+          <ScrollToTop lenisRef={lenisRef} />
+          <CursorEffect />
+        </>
+      )}
     </div>
   );
 };
 
-// Scroll to Top Button using Lenis
-const ScrollToTop = ({ lenisRef }: { lenisRef: React.MutableRefObject<Lenis | null> }) => {
+const ScrollToTop = ({
+  lenisRef,
+}: {
+  lenisRef: React.MutableRefObject<Lenis | null>;
+}) => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsVisible(window.scrollY > 500);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const onScroll = () => setIsVisible(window.scrollY > 500);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const scrollToTop = () => {
-    if (lenisRef.current) {
-      lenisRef.current.scrollTo(0);
-    }
+  const onClick = () => {
+    lenisRef.current?.scrollTo(0);
   };
 
   return (
     <button
-      onClick={scrollToTop}
+      onClick={onClick}
       className={`fixed bottom-8 right-8 z-40 w-12 h-12 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-full shadow-lg transition-all duration-300 flex items-center justify-center hover:scale-110 hover:shadow-xl ${
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
       }`}
       aria-label="Scroll to top"
     >
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M5 10l7-7m0 0l7 7m-7-7v18"
+        />
       </svg>
     </button>
   );
 };
 
-// Cursor effect component
 const CursorEffect = () => {
+  const [isDesktop, setIsDesktop] = useState(false);
+
   useEffect(() => {
-    let cursor: HTMLDivElement | null = null;
-    let cursorFollower: HTMLDivElement | null = null;
-
-    if (window.innerWidth > 768) {
-      cursor = document.createElement('div');
-      cursor.className = 'fixed w-2 h-2 bg-rose-500 rounded-full pointer-events-none z-50 mix-blend-difference transition-transform duration-100';
-      cursor.style.left = '-10px';
-      cursor.style.top = '-10px';
-      document.body.appendChild(cursor);
-
-      cursorFollower = document.createElement('div');
-      cursorFollower.className = 'fixed w-8 h-8 border border-rose-300 rounded-full pointer-events-none z-50 mix-blend-difference transition-all duration-300';
-      cursorFollower.style.left = '-16px';
-      cursorFollower.style.top = '-16px';
-      document.body.appendChild(cursorFollower);
-
-      const moveCursor = (e: MouseEvent) => {
-        if (cursor) {
-          cursor.style.left = `${e.clientX - 4}px`;
-          cursor.style.top = `${e.clientY - 4}px`;
-        }
-
-        setTimeout(() => {
-          if (cursorFollower) {
-            cursorFollower.style.left = `${e.clientX - 16}px`;
-            cursorFollower.style.top = `${e.clientY - 16}px`;
-          }
-        }, 50);
-      };
-
-      const handleMouseEnter = () => {
-        if (cursor) cursor.style.transform = 'scale(1.5)';
-        if (cursorFollower) cursorFollower.style.transform = 'scale(1.5)';
-      };
-
-      const handleMouseLeave = () => {
-        if (cursor) cursor.style.transform = 'scale(1)';
-        if (cursorFollower) cursorFollower.style.transform = 'scale(1)';
-      };
-
-      document.addEventListener('mousemove', moveCursor);
-
-      const interactiveElements = document.querySelectorAll('button, a, [role="button"]');
-      interactiveElements.forEach(el => {
-        el.addEventListener('mouseenter', handleMouseEnter);
-        el.addEventListener('mouseleave', handleMouseLeave);
-      });
-
-      return () => {
-        document.removeEventListener('mousemove', moveCursor);
-        interactiveElements.forEach(el => {
-          el.removeEventListener('mouseenter', handleMouseEnter);
-          el.removeEventListener('mouseleave', handleMouseLeave);
-        });
-        if (cursor) document.body.removeChild(cursor);
-        if (cursorFollower) document.body.removeChild(cursorFollower);
-      };
-    }
+    // Check if it's desktop after component mounts
+    setIsDesktop(window.innerWidth > 768);
+    
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth > 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    if (!isDesktop) return;
+
+    const cursor = document.createElement('div');
+    const follower = document.createElement('div');
+
+    cursor.className = 'fixed w-2 h-2 bg-rose-500 rounded-full pointer-events-none z-50 mix-blend-difference transition-transform duration-100';
+    follower.className = 'fixed w-8 h-8 border border-rose-300 rounded-full pointer-events-none z-50 mix-blend-difference transition-all duration-300';
+
+    document.body.append(cursor, follower);
+
+    const move = (e: MouseEvent) => {
+      cursor.style.left = `${e.clientX - 4}px`;
+      cursor.style.top = `${e.clientY - 4}px`;
+      setTimeout(() => {
+        follower.style.left = `${e.clientX - 16}px`;
+        follower.style.top = `${e.clientY - 16}px`;
+      }, 50);
+    };
+
+    const enter = () => {
+      cursor.style.transform = 'scale(1.5)';
+      follower.style.transform = 'scale(1.5)';
+    };
+    const leave = () => {
+      cursor.style.transform = 'scale(1)';
+      follower.style.transform = 'scale(1)';
+    };
+
+    document.addEventListener('mousemove', move);
+    document.querySelectorAll('button, a, [role="button"]').forEach(el => {
+      el.addEventListener('mouseenter', enter);
+      el.addEventListener('mouseleave', leave);
+    });
+
+    return () => {
+      document.removeEventListener('mousemove', move);
+      document.querySelectorAll('button, a, [role="button"]').forEach(el => {
+        el.removeEventListener('mouseenter', enter);
+        el.removeEventListener('mouseleave', leave);
+      });
+      cursor.remove();
+      follower.remove();
+    };
+  }, [isDesktop]);
 
   return null;
 };
